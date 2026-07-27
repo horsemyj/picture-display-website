@@ -8,7 +8,7 @@
 
 > 此项目使用fetch，因此请使用liveserver或本地服务器进行挂载测试，否则可能失败。如果实在需要，请参阅页尾方案
 
-> 此项目效果参见
+> 此项目效果参见[example](https://pdsite-example.pages.dev/)
 
 ## 使用方法
 
