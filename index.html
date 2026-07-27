@@ -1,0 +1,487 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>图像库</title>
+  <style>
+    :root { --gap:12px; --thumb-size:160px; --max-width:1200px; }
+    body{font-family:system-ui,Segoe UI,Arial;margin:20px;display:flex;justify-content:center;background:#f7f7f7}
+    .container{width:100%;max-width:var(--max-width)}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+    header h1{margin:0;font-size:1.25rem}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--thumb-size),1fr));gap:var(--gap)}
+    .card{background:#fff;border:1px solid #eee;border-radius:6px;overflow:hidden;display:flex;flex-direction:column;align-items:center}
+    .thumb{width:100%;aspect-ratio:1/1;object-fit:cover;display:block;cursor:pointer}
+    .meta{padding:8px;width:100%;box-sizing:border-box;display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:0.85rem}
+    .btn{background:#1976d2;color:#fff;border:none;padding:6px 10px;border-radius:4px;cursor:pointer;text-decoration:none;display:inline-block}
+    .btn:active{transform:translateY(1px)}
+    .pager{display:flex;justify-content:center;gap:8px;margin:16px 0;align-items:center}
+    .page-num{font-weight:600}
+    .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:999;padding:20px}
+    .modal{max-width:90vw;max-height:90vh;background:#111;border-radius:8px;padding:12px;box-sizing:border-box;display:flex;flex-direction:column;gap:8px}
+    .modal img{max-width:100%;max-height:80vh;margin:0 auto;display:block}
+    .modal .row{display:flex;gap:8px;align-items:center;justify-content:space-between;color:#fff}
+    .small{font-size:0.9rem;color:#ddd}
+    @media (max-width:600px){:root{--thumb-size:120px}}
+
+    /* 登录遮罩样式 */
+    .login-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.6); display:flex; align-items:center; justify-content:center; z-index:2000; }
+    .login-box { background:#fff; padding:24px; border-radius:8px; width:320px; box-shadow:0 8px 24px rgba(0,0,0,0.2); box-sizing:border-box; }
+    .login-box h2 { margin:0 0 12px 0; font-size:1.1rem; }
+    .login-box input { width:100%; padding:8px 10px; margin:8px 0; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; }
+    .login-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:8px; }
+    .error { color:#d93025; font-size:0.9rem; min-height:18px; }
+    #logoutBtn { margin-left:12px; }
+    .user-info { color:#555; font-size:0.95rem; margin-right:8px; }
+    .splash-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.8); display:flex; align-items:center; justify-content:center; z-index:2500; }
+    .splash-card { display:flex; flex-direction:column; align-items:center; gap:12px; color:#fff; text-align:center; }
+    .splash-icon { width:96px; height:96px; object-fit:contain; animation: splashJump 0.8s ease-in-out infinite alternate; filter: drop-shadow(0 10px 20px rgba(0,0,0,0.35)); }
+    .splash-text { font-size:1rem; letter-spacing:0.04em; }
+    @keyframes splashJump {
+      from { transform: translateY(0); }
+      to { transform: translateY(-18px); }
+    }
+  </style>
+</head>
+<body>
+  <!-- 登录遮罩 -->
+  <div id="loginOverlay" class="login-overlay" aria-hidden="true" style="display:none">
+    <div class="login-box" role="dialog" aria-modal="true" aria-label="登录">
+      <h2>请输入用户名和密码</h2>
+      <div>
+        <input id="usernameInput" placeholder="用户名" autocomplete="username" />
+        <input id="passwordInput" type="password" placeholder="密码" autocomplete="current-password" />
+        <div class="error" id="loginError"></div>
+        <div class="login-actions">
+          <button id="loginBtn" class="btn">登录</button>
+        </div>
+        <div style="margin-top:8px;font-size:0.85rem;color:#666">
+          欢迎使用^_^，请登录以访问图像库
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="splashOverlay" class="splash-overlay" aria-hidden="true" style="display:none">
+    <div class="splash-card">
+      <img class="splash-icon" src="1.ico" alt="登录成功" />
+      <div class="splash-text">登录成功，正在进入图库…</div>
+    </div>
+  </div>
+
+  <div class="container" id="mainContainer" style="display:none">
+    <header>
+      <div style="display:flex;align-items:center;gap:12px">
+        <h1>图像库</h1>
+        <div class="small">每页显示 12 张</div>
+      </div>
+      <div style="display:flex;align-items:center">
+        <div class="user-info" id="userInfo" style="display:none"></div>
+        <button id="logoutBtn" class="btn" style="display:none">登出</button>
+      </div>
+    </header>
+
+    <main>
+      <div id="gallery" class="grid" aria-live="polite"></div>
+      <div class="pager" id="pager">
+        <button id="prevBtn" class="btn">上一页</button>
+        <div class="page-num" id="pageInfo">0 / 0</div>
+        <button id="nextBtn" class="btn">下一页</button>
+      </div>
+    </main>
+  </div>
+
+  <!-- 内嵌 images.json 数据（保持现有内容） -->
+  <script id="images-data" type="application/json">
+
+  </script>
+
+    <script>
+  (function () {
+    const CREDENTIALS_URL = 'credentials.json';
+
+    // --- DOM 绑定 ---
+    const loginOverlay = document.getElementById('loginOverlay');
+    const splashOverlay = document.getElementById('splashOverlay');
+    const usernameInput = document.getElementById('usernameInput');
+    const passwordInput = document.getElementById('passwordInput');
+    const loginBtn = document.getElementById('loginBtn');
+    const loginError = document.getElementById('loginError');
+
+    const mainContainer = document.getElementById('mainContainer');
+    const userInfo = document.getElementById('userInfo');
+    const logoutBtn = document.getElementById('logoutBtn');
+
+    const gallery = document.getElementById('gallery');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const pageInfo = document.getElementById('pageInfo');
+
+    // --- 读取内嵌图片数据 ---
+    //const dataEl = document.getElementById('images-data');
+    //let images = [];
+    //try { images = JSON.parse(dataEl.textContent || '[]'); } catch (e) { console.error('images-data 解析失败', e); images = []; }
+    const dataEl = document.getElementById('images-data');
+    let images = [];
+    
+    function getExt(name) {
+      const m = /(\.[^./\\]+)$/i.exec(name || '');
+      return m ? m[1] : '';
+    }
+    
+    function getImageUrl(item) {
+      if (item && typeof item.url === 'string' && item.url) return item.url;
+      if (item && typeof item.assetFilename === 'string' && item.assetFilename) return `assets/${item.assetFilename}`;
+      if (item && typeof item.relativePath === 'string' && item.relativePath) return item.relativePath;
+      return '';
+    }
+    
+    function getDownloadName(item, index) {
+      if (item && typeof item.downloadName === 'string' && item.downloadName) return item.downloadName;
+    
+      const ext = getExt(getImageUrl(item));
+      const id = item && (item.id || item.index || item.order) ? (item.id || item.index || item.order) : index + 1;
+      return `${String(id).padStart(3, '0')}${ext}`;
+    }
+    
+    async function loadImages() {
+      try {
+        const res = await fetch('images.json', { cache: 'no-store' });
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json) && json.length) {
+            images = json;
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('load images.json failed, fallback to inline data', e);
+      }
+    
+      try {
+        images = JSON.parse(dataEl.textContent || '[]');
+      } catch (e) {
+        console.error('images-data 解析失败', e);
+        images = [];
+      }
+    }
+    // --- 本地凭据缓存 ---
+    let credentials = null;
+    async function loadCredentials() {
+      if (credentials) return credentials;
+      try {
+        const res = await fetch(CREDENTIALS_URL, { cache: 'no-store' });
+        if (!res.ok) throw new Error('无法加载凭据文件');
+        credentials = await res.json();
+        return credentials;
+      } catch (e) {
+        console.error('loadCredentials failed', e);
+        credentials = [];
+        return credentials;
+      }
+    }
+
+    
+    // --- 认证：使用 credentials.json + localStorage 会话 ---
+    async function isLoggedIn() {
+      const user = localStorage.getItem('loggedUser');
+      window._LOGGED_USER = user || null;
+      return !!window._LOGGED_USER;
+    }
+
+    //async function doLogin(username, password) {
+      //const creds = await loadCredentials();
+      //const u = creds.find(x => (x.username === username && x.password === password));
+      //if (!u) {
+        //throw new Error('用户名或密码错误');
+      //}
+      //localStorage.setItem('loggedUser', username);
+      //window._LOGGED_USER = username;
+      //return username;
+    //}
+        // PBKDF2 helpers + 登录实现（替换原 doLogin）
+    function base64ToArrayBuffer(b64) {
+      const bin = atob(b64);
+      const len = bin.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);
+      return bytes.buffer;
+    }
+    function arrayBufferToBase64(buf) {
+      const bytes = new Uint8Array(buf);
+      let bin = '';
+      for (let i = 0; i < bytes.byteLength; i++) bin += String.fromCharCode(bytes[i]);
+      return btoa(bin);
+    }
+    
+    async function verifyPasswordPBKDF2(password, entry) {
+      const saltBuf = base64ToArrayBuffer(entry.salt);
+      const iterations = entry.iterations || 150000;
+      const digestRaw = (entry.digest || 'sha256').toUpperCase();
+      const digest = digestRaw.startsWith('SHA-') ? digestRaw : digestRaw.replace('SHA', 'SHA-');
+      const keyLenBytes = 32;
+    
+      const enc = new TextEncoder();
+      const keyMaterial = await crypto.subtle.importKey(
+        'raw',
+        enc.encode(password),
+        { name: 'PBKDF2' },
+        false,
+        ['deriveBits']
+      );
+      const derivedBits = await crypto.subtle.deriveBits(
+        { name: 'PBKDF2', salt: saltBuf, iterations, hash: { name: digest } },
+        keyMaterial,
+        keyLenBytes * 8
+      );
+      const derivedB64 = arrayBufferToBase64(derivedBits);
+      return derivedB64 === entry.hash;
+    }
+    
+    async function doLogin(username, password) {
+      const creds = await loadCredentials();
+      const entry = creds.find(c => c.username === username);
+      if (!entry) throw new Error('用户名或密码错误');
+      const ok = await verifyPasswordPBKDF2(password, entry);
+      if (!ok) throw new Error('用户名或密码错误');
+      localStorage.setItem('loggedUser', username);
+      window._LOGGED_USER = username;
+      return username;
+    }
+
+    async function doLogout() {
+      localStorage.removeItem('loggedUser');
+      window._LOGGED_USER = null;
+    }
+
+    // --- 登录 UI 显示/隐藏 ---
+    function showLogin(message) {
+      loginError.textContent = message || '';
+      loginOverlay.style.display = 'flex';
+      mainContainer.style.display = 'none';
+      usernameInput.value = '';
+      passwordInput.value = '';
+      usernameInput.focus();
+    }
+    function hideLogin() {
+      loginOverlay.style.display = 'none';
+    }
+
+    function showSuccessSplash() {
+      splashOverlay.style.display = 'flex';
+      splashOverlay.setAttribute('aria-hidden', 'false');
+      loginOverlay.style.display = 'none';
+      mainContainer.style.display = 'none';
+    }
+
+    function hideSuccessSplash() {
+      splashOverlay.style.display = 'none';
+      splashOverlay.setAttribute('aria-hidden', 'true');
+    }
+
+    //function afterLogin() {
+      //const u = window._LOGGED_USER || '';
+      //userInfo.textContent = u ? ('当前用户：' + u) : '';
+      //userInfo.style.display = u ? 'inline-block' : 'none';
+      //logoutBtn.style.display = u ? 'inline-block' : 'none';
+      //loginError.textContent = '';
+      //hideLogin();
+      //initGallery();
+    //}
+    async function afterLogin() {
+      const u = window._LOGGED_USER || '';
+      userInfo.textContent = u ? ('当前用户：' + u) : '';
+      userInfo.style.display = u ? 'inline-block' : 'none';
+      logoutBtn.style.display = u ? 'inline-block' : 'none';
+      loginError.textContent = '';
+      hideLogin();
+      showSuccessSplash();
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      hideSuccessSplash();
+      await loadImages();
+      initGallery();
+      mainContainer.style.display = 'block';
+    }
+
+    // --- 登录事件绑定 ---
+    loginBtn.addEventListener('click', async () => {
+      const u = (usernameInput.value || '').trim();
+      const p = passwordInput.value || '';
+      if (!u || !p) { loginError.textContent = '请输入用户名和密码'; return; }
+      loginError.textContent = '';
+      try {
+        await doLogin(u, p);
+        //afterLogin();
+        await afterLogin();
+      } catch (err) {
+        loginError.textContent = err.message || '登录失败';
+      }
+    });
+    passwordInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') loginBtn.click(); });
+    usernameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') passwordInput.focus(); });
+
+    logoutBtn.addEventListener('click', async () => {
+      await doLogout();
+      userInfo.style.display = 'none';
+      logoutBtn.style.display = 'none';
+      showLogin('已登出');
+    });
+
+    // --- 画廊逻辑（分页/渲染/预览） ---
+    const PAGE_SIZE = 12;
+    let currentPage = 1;
+    const totalPages = () => Math.max(1, Math.ceil(images.length / PAGE_SIZE));
+
+    function renderPage(page) {
+      gallery.innerHTML = '';
+      if (!images.length) {
+        gallery.innerHTML = '<div style="padding:20px;color:#666">没有图片。请把 images.json 内容粘贴到页面内的脚本标签，或把图片放到 assets 文件夹并生成 images.json。</div>';
+        pageInfo.textContent = '0 / 0';
+        return;
+      }
+      page = Math.max(1, Math.min(page, totalPages()));
+      currentPage = page;
+      const start = (page - 1) * PAGE_SIZE;
+      //const slice = images.slice(start, start + PAGE_SIZE);
+      const slice = images.slice(start, start + PAGE_SIZE);
+      for (const [index, item] of slice.entries()) {
+        const card = document.createElement('div');
+        card.className = 'card';
+      
+        const img = document.createElement('img');
+        img.className = 'thumb';
+        img.loading = 'lazy';
+        img.alt = item.filename || '';
+        const imgUrl = getImageUrl(item);
+        img.src = imgUrl;
+        img.addEventListener('click', () => openModal(item));
+        card.appendChild(img);
+      
+        const meta = document.createElement('div');
+        meta.className = 'meta';
+      
+        const name = document.createElement('div');
+        name.textContent = item.filename || '';
+        name.style.whiteSpace = 'nowrap';
+        name.style.overflow = 'hidden';
+        name.style.textOverflow = 'ellipsis';
+      
+        const dl = document.createElement('a');
+        dl.className = 'btn';
+        dl.textContent = '下载';
+        const downloadName = getDownloadName(item, index);
+        dl.href = imgUrl;
+        dl.setAttribute('download', downloadName);
+      
+        meta.appendChild(name);
+        meta.appendChild(dl);
+        card.appendChild(meta);
+        gallery.appendChild(card);
+      }
+      pageInfo.textContent = page + ' / ' + totalPages();
+      prevBtn.disabled = (page <= 1);
+      nextBtn.disabled = (page >= totalPages());
+    }
+
+    // Modal / preview
+    let overlay = null;
+    
+    
+    function openModal(item) {
+      if (overlay) closeModal();
+    
+      overlay = document.createElement('div');
+      overlay.className = 'overlay';
+      overlay.tabIndex = -1;
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) closeModal();
+      });
+    
+      const modal = document.createElement('div');
+      modal.className = 'modal';
+    
+      const row = document.createElement('div');
+      row.className = 'row';
+    
+      const title = document.createElement('div');
+      title.innerHTML = '<strong style="color:#fff">' + (item.filename || '') + '</strong>';
+    
+      const right = document.createElement('div');
+      const imgUrl = getImageUrl(item);
+    
+      const download = document.createElement('a');
+      download.className = 'btn';
+      download.textContent = '下载';
+      download.href = imgUrl;
+      download.setAttribute('download', getDownloadName(item, 0));
+      right.appendChild(download);
+    
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'btn';
+      closeBtn.textContent = '关闭';
+      closeBtn.style.marginLeft = '8px';
+      closeBtn.addEventListener('click', closeModal);
+      right.appendChild(closeBtn);
+    
+      row.appendChild(title);
+      row.appendChild(right);
+    
+      const img = document.createElement('img');
+      img.src = imgUrl;
+      img.alt = item.filename || '';
+    
+      modal.appendChild(row);
+      modal.appendChild(img);
+    
+      const info = document.createElement('div');
+      info.className = 'small';
+      if (item.size) {
+        info.textContent = '大小：' + formatBytes(item.size) + (item.mtime ? ' • ' + new Date(item.mtime).toLocaleString() : '');
+      } else if (item.mtime) {
+        info.textContent = new Date(item.mtime).toLocaleString();
+      }
+      modal.appendChild(info);
+    
+      overlay.appendChild(modal);
+      document.body.appendChild(overlay);
+      overlay.focus();
+      document.addEventListener('keydown', onKey);
+    }
+
+    function onKey(e) { if (e.key === 'Escape') closeModal(); }
+
+    function formatBytes(bytes) {
+      if (!bytes && bytes !== 0) return '';
+      const thresh = 1024;
+      if (Math.abs(bytes) < thresh) return bytes + ' B';
+      const units = ['KB','MB','GB','TB','PB','EB','ZB','YB'];
+      let u = -1;
+      do { bytes /= thresh; ++u; } while (Math.abs(bytes) >= thresh && u < units.length - 1);
+      return bytes.toFixed(1) + ' ' + units[u];
+    }
+
+    prevBtn.addEventListener('click', () => renderPage(currentPage - 1));
+    nextBtn.addEventListener('click', () => renderPage(currentPage + 1));
+    document.addEventListener('keydown', (e) => {
+      if (overlay) return;
+      if (e.key === 'ArrowLeft') renderPage(currentPage - 1);
+      if (e.key === 'ArrowRight') renderPage(currentPage + 1);
+    });
+
+    function initGallery() { renderPage(1); }
+
+    // --- 页面加载：检查会话并展示相应 UI ---
+    window.addEventListener('load', async () => {
+      const ok = await isLoggedIn();
+      if (ok) {
+        hideLogin();
+        afterLogin();
+      } else {
+        showLogin('');
+      }
+    });
+  })();
+  </script>
+</body>
+</html>

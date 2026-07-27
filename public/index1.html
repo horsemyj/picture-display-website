@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>本地图片画廊</title>
+<style>
+  :root{--gap:12px;--thumb-h:160px;--max-w:1200px}
+  body{font-family:system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial;margin:16px;display:flex;justify-content:center}
+  .container{width:100%;max-width:var(--max-w)}
+  header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+  h1{margin:0;font-size:1.25rem}
+  .controls{display:flex;gap:8px;align-items:center}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:var(--gap)}
+  .card{background:#f8f8f8;border-radius:6px;padding:6px;display:flex;flex-direction:column;align-items:center;cursor:pointer}
+  .card img{height:var(--thumb-h);object-fit:cover;width:100%;border-radius:4px}
+  .meta{font-size:12px;color:#444;word-break:break-all;padding-top:6px;width:100%;text-align:center}
+  .pager{display:flex;gap:8px;align-items:center;margin-top:12px;justify-content:center}
+  button{padding:6px 10px;border:1px solid #ccc;background:white;border-radius:4px;cursor:pointer}
+  button:disabled{opacity:0.5;cursor:default}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;padding:20px;z-index:999;visibility:hidden;opacity:0;transition:opacity .15s}
+  .modal.open{visibility:visible;opacity:1}
+  .modal-content{background:#fff;max-width:95%;max-height:95%;border-radius:8px;overflow:hidden;display:flex;flex-direction:column}
+  .modal-top{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid #eee}
+  .modal-img{display:flex;align-items:center;justify-content:center;padding:12px;background:#111}
+  .modal-img img{max-width:100%;max-height:75vh;object-fit:contain}
+  .filename{font-size:14px}
+  .small{font-size:12px;color:#666}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>本地图片画廊</h1>
+      <div class="controls">
+        <label class="small">每页
+          <select id="perPageSelect">
+            <option value="12" selected>12</option>
+            <option value="24">24</option>
+            <option value="48">48</option>
+          </select>
+        张</label>
+        <input id="search" placeholder="文件名搜索" />
+      </div>
+    </header>
+
+    <main>
+      <div id="grid" class="grid"></div>
+      <div class="pager" id="pager">
+        <button id="prevBtn">上一页</button>
+        <div><span id="pageInfo">0 / 0</span></div>
+        <button id="nextBtn">下一页</button>
+      </div>
+    </main>
+  </div>
+
+  <div id="modal" class="modal" role="dialog" aria-modal="true">
+    <div class="modal-content" role="document">
+      <div class="modal-top">
+        <div>
+          <div class="filename" id="modalFilename"></div>
+          <div class="small" id="modalSize"></div>
+        </div>
+        <div>
+          <a id="downloadLink" class="small" href="#" download>
+            <button id="downloadBtn">下载</button>
+          </a>
+          <button id="closeBtn">关闭</button>
+        </div>
+      </div>
+      <div class="modal-img" id="modalImgWrap">
+        <img id="modalImg" alt="">
+      </div>
+    </div>
+  </div>
+
+<script>
+(async function(){
+  const grid = document.getElementById('grid');
+  const pageInfo = document.getElementById('pageInfo');
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  const modal = document.getElementById('modal');
+  const modalImg = document.getElementById('modalImg');
+  const modalFilename = document.getElementById('modalFilename');
+  const modalSize = document.getElementById('modalSize');
+  const downloadLink = document.getElementById('downloadLink');
+  const closeBtn = document.getElementById('closeBtn');
+  const perPageSelect = document.getElementById('perPageSelect');
+  const searchInput = document.getElementById('search');
+
+  let images = [];
+  try {
+    const res = await fetch('./images.json', {cache: 'no-store'});
+    if(!res.ok) throw new Error('加载 images.json 失败: ' + res.status);
+    images = await res.json();
+  } catch (err) {
+    grid.innerHTML = '<div style="padding:20px;color:#900">无法加载 images.json，请确认已运行生成脚本并通过本地服务器打开页面。<br>'+err.message+'</div>';
+    return;
+  }
+
+  images = images.map(i => ({
+    ...i,
+    url: i.url || i.relativePath || i.filename
+  }));
+
+  let page = 1;
+  let perPage = parseInt(perPageSelect.value,10);
+  let filtered = images;
+
+  function renderPage(){
+    perPage = parseInt(perPageSelect.value,10);
+    const total = Math.max(1, Math.ceil(filtered.length / perPage));
+    if(page > total) page = total;
+    const start = (page-1)*perPage;
+    const pageItems = filtered.slice(start, start + perPage);
+
+    grid.innerHTML = '';
+    for(const it of pageItems){
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.tabIndex = 0;
+
+      const img = document.createElement('img');
+      img.loading = 'lazy';
+      img.alt = it.filename || '';
+      img.src = it.url;
+
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      meta.textContent = it.filename || '';
+
+      card.appendChild(img);
+      card.appendChild(meta);
+      grid.appendChild(card);
+
+      card.addEventListener('click', ()=> openModal(it));
+      card.addEventListener('keydown', (e)=> { if(e.key==='Enter') openModal(it); });
+    }
+
+    pageInfo.textContent = page + ' / ' + total;
+    prevBtn.disabled = page <= 1;
+    nextBtn.disabled = page >= total;
+  }
+
+  function openModal(it){
+    modalImg.src = it.url;
+    modalFilename.textContent = it.filename || '';
+    modalSize.textContent = it.size ? formatSize(it.size) + ' • ' + new Date(it.mtime || 0).toLocaleString() : '';
+    downloadLink.href = it.url;
+    downloadLink.setAttribute('download', it.filename || '');
+    modal.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    modal.focus();
+  }
+
+  function closeModal(){
+    modal.classList.remove('open');
+    document.body.style.overflow = '';
+    modalImg.src = '';
+  }
+
+  function formatSize(n){
+    if(!n && n!==0) return '';
+    if(n < 1024) return n + ' B';
+    if(n < 1024*1024) return (n/1024).toFixed(1) + ' KB';
+    return (n/1024/1024).toFixed(2) + ' MB';
+  }
+
+  prevBtn.addEventListener('click', ()=> { if(page>1) { page--; renderPage(); }});
+  nextBtn.addEventListener('click', ()=> { page++; renderPage(); });
+  closeBtn.addEventListener('click', closeModal);
+  modal.addEventListener('click', (e)=> { if(e.target === modal) closeModal(); });
+  document.addEventListener('keydown', (e)=> {
+    if(e.key==='Escape') closeModal();
+    if(modal.classList.contains('open')){
+      if(e.key==='ArrowLeft') {/* previous image in current page */}
+      if(e.key==='ArrowRight') {/* next image in current page */}
+    }
+  });
+
+  perPageSelect.addEventListener('change', ()=> { page = 1; renderPage(); });
+  searchInput.addEventListener('input', ()=> {
+    const q = searchInput.value.trim().toLowerCase();
+    filtered = q ? images.filter(i => (i.filename || '').toLowerCase().includes(q)) : images;
+    page = 1;
+    renderPage();
+  });
+
+  // 初始渲染
+  renderPage();
+})();
+</script>
+</body>
+</html>

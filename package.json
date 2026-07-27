@@ -1,0 +1,17 @@
+{
+  "name": "local-gallery",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "body-parser": "^2.2.2",
+    "cookie-parser": "^1.4.7",
+    "express": "^4.22.2"
+  },
+  "description": "npm install express",
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>本地图片画廊</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="header">
+    <h1 id="site-title">本地图片画廊</h1>
+  </header>
+
+  <main>
+    <div id="gallery" class="grid"></div>
+    <div id="pagination" class="pagination"></div>
+  </main>
+
+  <div id="modal" class="modal hidden">
+    <div class="modal-inner">
+      <button id="close" class="close">×</button>
+      <img id="modal-img" src="" alt="预览" />
+      <a id="download-btn" class="download" href="" download>下载图片</a>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
