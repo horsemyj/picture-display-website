@@ -30,13 +30,13 @@ node generate_credentials.js admin:password user:password
 
 > encrypt 文件夹中的server.js与index.html是凭据生成脚本的图形化版本，先运行server.js再根据server.js的输出指引访问localhost:3000即可
 
-### 登入动效
+### 3.登入动效
 
 将1.ico替换为自己想要的图片即可，一定为ico格式且命名为1.ico
 
 > 此项目预置一个演示账号admin,密码为admin
 
-### 注释（在本地调试的方法）
+### 4.注释（在本地调试的方法）
 
 > 未经作者验证
 
@@ -73,8 +73,4 @@ async function loadCredentials() {
   }
 }
 ```
-
-
-
-
 
