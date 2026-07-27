@@ -6,6 +6,8 @@
 
 > 由忽略警告使用本项目所造成的损失自负
 
+> 此项目使用fetch，因此请使用liveserver或本地服务器进行挂载测试，否则可能失败。如果实在需要，请参阅页尾方案
+
 ## 使用方法
 
 ### 1.图片存放
@@ -33,4 +35,46 @@ node generate_credentials.js admin:password user:password
 将1.ico替换为自己想要的图片即可，一定为ico格式且命名为1.ico
 
 > 此项目预置一个演示账号admin,密码为admin
+
+### 注释（在本地调试的方法）
+
+> 未经作者验证
+
+把下面这段放到 index.html 里，放在主脚本前面：
+
+```
+<script id="credentials-data" type="application/json">
+（插入credentials.json的内容）
+</script>
+```
+
+然后把原来的 `loadCredentials()` 替换成下面这一版：（做好备份）
+
+```
+let credentials = null;
+const credentialsDataEl = document.getElementById('credentials-data');
+
+async function loadCredentials() {
+  if (credentials) return credentials;
+  try {
+    const res = await fetch(CREDENTIALS_URL, { cache: 'no-store' });
+    if (!res.ok) throw new Error('无法加载凭据文件');
+    credentials = await res.json();
+    return credentials;
+  } catch (e) {
+    console.warn('loadCredentials failed, fallback to inline credentials', e);
+    try {
+      credentials = JSON.parse(credentialsDataEl?.textContent || '[]');
+    } catch (parseErr) {
+      console.error('inline credentials parse failed', parseErr);
+      credentials = [];
+    }
+    return credentials;
+  }
+}
+```
+
+
+
+
 
