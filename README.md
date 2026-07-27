@@ -10,6 +10,8 @@
 
 > 此项目效果参见[example](https://pdsite-example.pages.dev/)
 
+> For the english version see [here](https://github.com/horsemyj/picture-display-website.git/docs/readme-english.md)
+
 ## 使用方法
 
 ### 1.图片存放
