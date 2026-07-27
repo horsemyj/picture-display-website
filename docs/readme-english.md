@@ -2,6 +2,8 @@
 
 ## Introduction
 
+> ATTENTION! It is recommended to see the fully translated version [Click here](https://github.com/horsemyj/picture-display-website-en-.git)
+
 This is a static webpage that provides image display, offering basic login protection as well as preview and download functionality. The login feature uses local hash comparison, so it is not recommended for use in a production environment. It is intended only for simple image display and should not be used to display content involving confidential or private information. Be cautious of asset leaks and privacy violations.
 
 > Users bear full responsibility for any losses caused by ignoring warnings when using this project.
